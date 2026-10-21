@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Community One Hero</title>
+<script>
+  try { const t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('c1-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  :root {
+    --surface: #0e1525;
+    --scrim: 14, 21, 37;
+    --glass: rgba(21, 30, 46, 0.62);
+    --glass-bar: rgba(21, 30, 46, 0.58);
+    --glass-border: rgba(55, 65, 90, 0.6);
+    /* liquid glass: barely-there tint, heavy frost, a glossy rim that catches the light */
+    --hero-glass: rgba(14, 22, 36, 0.32);
+    --hero-glass-bar: rgba(14, 22, 36, 0.32);
+    --hero-edge: rgba(255, 255, 255, 0.08);
+    --hero-sheen: linear-gradient(135deg, rgba(255,255,255,.13) 0%, rgba(255,255,255,.04) 38%, rgba(255,255,255,0) 62%, rgba(255,255,255,.05) 100%);
+    --hero-rim: linear-gradient(135deg, rgba(255,255,255,.5) 0%, rgba(255,255,255,.1) 30%, rgba(255,255,255,0) 55%, rgba(255,255,255,.18) 100%);
+    --hero-gloss: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(255,255,255,.05), inset 0 0 24px rgba(255,255,255,.03), 0 24px 60px -18px rgba(0,0,0,.55);
+    --hero-bar-gloss: inset 0 -1px 0 rgba(255,255,255,.1), inset 0 1px 0 rgba(255,255,255,.06), 0 8px 30px -12px rgba(0,0,0,.35);
+    --primary-600: #7c3aed;
+    --primary-700: #6d28d9;
+    --eyebrow: #d5c4fc;
+    --text: #f8fafc;
+    --muted: #cbd5e1;
+    --soft: #e2e8f0;
+    --faint: #94a3b8;
+    --ghost-bg: rgba(14, 21, 37, .35);
+    --ghost-border: rgba(148, 163, 184, .45);
+    --ghost-border-hover: rgba(203, 213, 225, .8);
+    --tag: #6ee7b7;
+    --shadow: 0 20px 50px -12px rgba(0, 0, 0, .5);
+    --footer-bg: rgba(255, 255, 255, .02);
+    color-scheme: dark;
+  }
+  /* light mode (theme button in the header; remembered per browser) */
+  :root[data-theme="light"] {
+    --surface: #f3f2f9;
+    --scrim: 243, 242, 249;
+    --glass: rgba(255, 255, 255, 0.64);
+    --glass-bar: rgba(255, 255, 255, 0.6);
+    --glass-border: rgba(148, 163, 184, 0.35);
+    --hero-glass: rgba(255, 255, 255, 0.34);
+    --hero-glass-bar: rgba(255, 255, 255, 0.4);
+    --hero-edge: rgba(255, 255, 255, 0.35);
+    --hero-sheen: linear-gradient(135deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.16) 38%, rgba(255,255,255,.04) 62%, rgba(255,255,255,.22) 100%);
+    --hero-rim: linear-gradient(135deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.35) 30%, rgba(255,255,255,.1) 55%, rgba(255,255,255,.7) 100%);
+    --hero-gloss: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(255,255,255,.3), inset 0 0 28px rgba(255,255,255,.18), 0 24px 60px -20px rgba(15,60,55,.28);
+    --hero-bar-gloss: inset 0 -1px 0 rgba(255,255,255,.6), inset 0 1px 0 rgba(255,255,255,.5), 0 8px 30px -14px rgba(15,60,55,.18);
+    --eyebrow: #6d28d9;
+    --text: #0f172a;
+    --muted: #334155;
+    --soft: #334155;
+    --faint: #64748b;
+    --ghost-bg: rgba(255, 255, 255, .6);
+    --ghost-border: rgba(100, 116, 139, .4);
+    --ghost-border-hover: rgba(71, 85, 105, .7);
+    --tag: #047857;
+    --shadow: 0 20px 50px -18px rgba(76, 29, 149, .25);
+    --footer-bg: rgba(255, 255, 255, .6);
+    color-scheme: light;
+  }
+  body { transition: background-color .3s, color .3s; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--surface);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Hero shell (mirrors the live site) ---------- */
+  .hero {
+    position: relative;
+    isolation: isolate;
+    min-height: 42rem;
+    min-height: 100vh;
+    /* the screen height with Safari's address bar showing: it never changes while you scroll,
+       so the hero (and everything below it) doesn't grow / shrink as the bar hides and returns */
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1;
+  }
+  /* The 3D canvas mounts here */
+  .hero-scene {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    /* same height as the hero, which is now fixed while scrolling (100svh), so the scene
+       never resizes or re-lays-out when Safari's address bar shows / hides */
+    bottom: 0;
+    /* stacked with positive z-indexes (scene 0 < scrim 1 < content 2 < header 10):
+       iOS Safari can draw a *playing* <video> behind the page when it sits at a negative
+       z-index — it shows the poster, then vanishes as playback starts */
+    z-index: 0;
+    background: var(--surface) center / cover no-repeat; /* poster stays behind the video as a fallback */
+  }
+  .hero-scene canvas { display: block; width: 100%; height: 100%; }
+  .hero-scene video {
+    display: block; width: 100%; height: 100%;
+    object-fit: cover;                 /* fills any screen, cropping instead of stretching */
+    object-position: 70% 50%;          /* landscape: keep the activities on the right in view */
+    background: transparent;           /* the poster backdrop shows until the first frame */
+    transform: translateZ(0);          /* its own GPU layer, composited above the backdrop */
+    opacity: 0; transition: opacity .4s; /* hidden until it is actually playing — the still backdrop shows meanwhile */
+  }
+  .hero-scene video.is-playing { opacity: 1; }
+  /* never show Safari's own play button / controls (shown when autoplay is blocked, e.g. Low Power Mode) */
+  .hero-scene video::-webkit-media-controls,
+  .hero-scene video::-webkit-media-controls-panel,
+  .hero-scene video::-webkit-media-controls-overlay-play-button,
+  .hero-scene video::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none; }
+  .hero-scene video[data-shape^="mobile"], .hero-scene video[data-shape="tablet-portrait"] { object-position: 50% 50%; } /* shapes now match, so any tiny crop is shared top & bottom */
+  /* light mode: no white wash over the scene (it would lighten the boards); keep only the soft
+     top edge and the fade into the next section. The card's glass keeps the text readable. */
+  :root[data-theme="light"] .hero-scrim {
+    background: linear-gradient(180deg, rgba(var(--scrim),.35) 0%, rgba(var(--scrim),0) 14%, rgba(var(--scrim),0) 90%, rgb(var(--scrim)) 100%); /* short fade: the backdrop already ends on the page colour, and a long fade veiled the bottom-row objects */
+  }
+  /* Safari: frosted glass over a moving canvas flickers unless the glass gets its own layer */
+  header.bar, .card { -webkit-transform: translateZ(0); transform: translateZ(0); }
+  /* Readability scrim: keeps the left / text side calm */
+  .hero-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(var(--scrim),.72) 0%, rgba(var(--scrim),.35) 42%, rgba(var(--scrim),0) 68%),
+      linear-gradient(180deg, rgba(var(--scrim),.35) 0%, rgba(var(--scrim),0) 18%, rgba(var(--scrim),0) 86%, rgb(var(--scrim)) 100%);
+  }
+  @media (max-width: 767px) {
+    .hero-scrim {
+      background: linear-gradient(180deg, rgba(var(--scrim),.45) 0%, rgba(var(--scrim),.25) 55%, rgba(var(--scrim),0) 75%, rgba(var(--scrim),0) 90%, rgb(var(--scrim)) 100%);
+    }
+  }
+
+  header.bar {
+    position: relative;
+    z-index: 10;
+    background: var(--hero-sheen), var(--hero-glass-bar);
+    /* clear glass: translucent tint only, no frost */
+    border-bottom: 1px solid var(--hero-edge);
+    box-shadow: var(--hero-bar-gloss);
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .wrap { width: 100%; max-width: 80rem; margin: 0 auto; padding: 0 20px; }
+  @media (min-width: 640px) { .wrap { padding: 0 32px; } }
+  @media (min-width: 1024px) { .wrap { padding: 0 48px; } }
+  .bar .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; white-space: nowrap; flex-shrink: 0; }
+  .brand-mark { width: 26px; height: 26px; }
+  nav { display: flex; align-items: center; gap: 24px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  nav a { color: var(--soft); text-decoration: none; }
+  nav a:hover { color: var(--text); }
+  .pill {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 9999px; font-weight: 700; text-decoration: none; cursor: pointer;
+    transition: background-color .2s, border-color .2s;
+  }
+  .pill-primary { background: var(--primary-600); color: #fff; }
+  .pill-primary:hover { background: var(--primary-700); }
+  .pill-ghost { color: var(--text); border: 1px solid var(--ghost-border); background: var(--ghost-bg); }
+  .pill-ghost:hover { border-color: var(--ghost-border-hover); }
+  nav .pill { padding: 8px 16px; color: #fff; }
+  .theme-btn { cursor: pointer; width: 32px; height: 32px; border: 0; background: none; color: var(--soft); display: grid; place-items: center; border-left: 1px solid var(--glass-border); padding-left: 20px; box-sizing: content-box; }
+  @media (max-width: 767px) {
+    nav .hide-sm { display: none; }
+    .brand-name { display: none; } /* phones: logo mark only */
+    .brand-mark { width: 30px; height: 30px; }
+    .bar .wrap { height: 60px; gap: 12px; }
+    nav { gap: 12px; }
+    nav .pill { padding: 7px 14px; }
+    .theme-btn { width: 28px; height: 28px; padding-left: 10px; }
+  }
+
+
+  .hero-body { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; padding-bottom: 40px; }
+  .hero-body .wrap { padding-top: clamp(40px, 9vh, 112px); }
+  .card {
+    position: relative;
+    width: fit-content;
+    max-width: 48rem;
+    /* frosted glass: very translucent tint + a soft light sheen + a bright hairline edge */
+    background: var(--hero-sheen), var(--hero-glass);
+    /* clear glass: translucent tint only, no frost */
+    border: 1px solid var(--hero-edge);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--hero-gloss);
+    transition: opacity .4s, transform .4s;
+  }
+  /* glossy rim: a 1px gradient edge, brightest where the light hits (top-left) */
+  .card::before {
+    content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: var(--hero-rim);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  @media (min-width: 640px) { .card { padding: 32px; } }
+  @media (min-width: 1024px) { .card { padding: 40px; } }
+  .eyebrow { margin: 0 0 20px; font-size: 14px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--eyebrow); }
+  @media (min-width: 640px) { .eyebrow { font-size: 16px; } }
+  h1 { margin: 0; max-width: 48rem; font-size: 48px; line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; }
+  @media (min-width: 640px) { h1 { font-size: 60px; } }
+  @media (min-width: 1024px) { h1 { font-size: 72px; } }
+  .lede { margin: 20px 0 0; max-width: 34rem; font-size: 18px; line-height: 1.55; color: var(--soft); }
+  .ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .ctas .pill { min-height: 48px; padding: 12px 24px; font-size: 16px; }
+
+  /* ---------- Below the hero ---------- */
+  .section { position: relative; z-index: 1; padding: 96px 0 72px; }
+  .section h2 { margin: 0; font-size: 36px; line-height: 1.15; letter-spacing: -0.02em; }
+  @media (min-width: 640px) { .section h2 { font-size: 44px; } }
+  .section .sub { margin: 12px 0 0; color: var(--muted); font-size: 17px; }
+  .section .count { margin: 28px 0 16px; color: var(--faint); font-size: 14px; }
+  .centres { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 720px) { .centres { grid-template-columns: repeat(3, 1fr); } }
+  .centre {
+    background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border); border-radius: 16px; padding: 24px;
+    transition: border-color .2s, transform .2s, box-shadow .2s;
+  }
+  a.centre { color: inherit; text-decoration: none; display: block; }
+  .centre:hover { border-color: rgba(167,139,250,.55); transform: translateY(-2px); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--tag); background: rgba(16,185,129,.12); border-radius: 9999px; padding: 4px 10px; }
+  .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+  .centre h3 { margin: 16px 0 4px; font-size: 20px; }
+  .centre p { margin: 0; color: var(--faint); font-size: 15px; }
+  .centre .open { margin-top: 18px; color: var(--eyebrow); font-weight: 600; font-size: 14px; }
+  .eyebrow-sm { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--eyebrow); }
+
+  /* ---------- Footer (mirrors the live site) ---------- */
+  .site-footer { position: relative; z-index: 1; border-top: 1px solid var(--glass-border); background: var(--footer-bg); }
+  .site-footer .wrap { padding-top: 40px; padding-bottom: 40px; }
+  @media (min-width: 640px) { .site-footer .wrap { padding-top: 48px; padding-bottom: 48px; } }
+  .footer-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
+  @media (min-width: 640px) { .footer-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .footer-grid { grid-template-columns: repeat(4, 1fr); } .footer-about { grid-column: span 2; } }
+  .footer-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); text-decoration: none; }
+  .footer-brand svg { width: 32px; height: 32px; }
+  .footer-about p { margin: 12px 0 0; max-width: 24rem; font-size: 14px; line-height: 1.7; color: var(--faint); }
+  .site-footer h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text); }
+  .site-footer ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+  .site-footer a.flink { display: inline-flex; align-items: center; font-size: 14px; color: var(--faint); text-decoration: none; transition: color .2s; }
+  .site-footer a.flink:hover { color: var(--text); }
+  @media (pointer: coarse) { .site-footer ul { gap: 0; } .site-footer a.flink { min-height: 44px; } }
+  .footer-bottom { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  @media (min-width: 640px) { .footer-bottom { flex-direction: row; justify-content: space-between; text-align: left; } }
+  .footer-bottom p { margin: 0; font-size: 12px; color: var(--faint); }
+  .footer-bottom nav { gap: 16px; }
+  .footer-bottom a.flink { font-size: 12px; font-weight: 500; }
+  /* theme button shows the mode you'd switch to */
+  .theme-btn .i-moon { display: none; }
+  :root[data-theme="light"] .theme-btn .i-sun { display: none; }
+  :root[data-theme="light"] .theme-btn .i-moon { display: block; }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-scene" id="hero-scene" aria-hidden="true"></div>
+  <div class="hero-scrim"></div>
+
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="#" aria-label="Community One">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="7" r="4" fill="#f59e0b"/><circle cx="25" cy="14" r="4" fill="#ec4899"/>
+          <circle cx="21" cy="25" r="4" fill="#8b5cf6"/><circle cx="10" cy="25" r="4" fill="#3b82f6"/>
+          <circle cx="7" cy="14" r="4" fill="#10b981"/>
+        </svg>
+        <span class="brand-name">Community One</span>
+      </a>
+      <nav>
+        <a href="#" class="hide-sm">Centres</a>
+        <a href="#" class="hide-sm">Pricing</a>
+        <a href="#" class="hide-sm">Contact</a>
+        <a href="#">Log in</a>
+        <a href="#" class="pill pill-primary">Sign up</a>
+        <button class="theme-btn" id="theme-btn" aria-label="Switch to light mode">
+          <svg class="i-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="i-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero-body">
+    <div class="wrap">
+      <div class="card">
+        <p class="eyebrow">Addu City Community Centres</p>
+        <h1>A place to move, create, and belong.</h1>
+        <p class="lede">Sport, recreation and learning spaces at community centres across Addu City.</p>
+        <div class="ctas">
+          <a href="#" class="pill pill-primary">Choose a centre
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          </a>
+          <a href="#" class="pill pill-ghost">Sign up</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="centres">
+  <div class="wrap">
+    <p class="eyebrow-sm">Find your space</p>
+    <h2>Explore community centres</h2>
+    <p class="sub">Choose a centre to see its facilities, location, and membership options.</p>
+    <p class="count">3 centres available to explore</p>
+    <div class="centres">
+      <a class="centre" href="#"><span class="tag">Available</span><h3>Gan Community Center</h3><p>Gan, Addu City</p><div class="open">Open for membership →</div></a>
+      <a class="centre" href="#"><span class="tag">Available</span><h3>Hithadhoo Community Center</h3><p>Hithadhoo</p><div class="open">Open for membership →</div></a>
+      <a class="centre" href="#"><span class="tag">Available</span><h3>Maradhoo Feydhoo Community Center</h3><p>Maradhoo Feydhoo</p><div class="open">Open for membership →</div></a>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-about">
+        <a class="footer-brand" href="/" aria-label="Community One home">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <circle cx="16" cy="7" r="4" fill="#f59e0b"/><circle cx="25" cy="14" r="4" fill="#ec4899"/>
+            <circle cx="21" cy="25" r="4" fill="#8b5cf6"/><circle cx="10" cy="25" r="4" fill="#3b82f6"/>
+            <circle cx="7" cy="14" r="4" fill="#10b981"/>
+          </svg>
+          Community One
+        </a>
+        <p>Addu City Community Centres. A place to move, create, and belong.</p>
+      </div>
+      <div>
+        <h2>Explore</h2>
+        <ul>
+          <li><a class="flink" href="/pricing">Membership pricing</a></li>
+          <li><a class="flink" href="/contact">Contact us</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2>Membership</h2>
+        <ul>
+          <li><a class="flink" href="/register">Sign up</a></li>
+          <li><a class="flink" href="/login">Log in</a></li>
+          <li><a class="flink" href="/terms">Terms of service</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Addu City Council. All rights reserved.</p>
+      <nav aria-label="Footer">
+        <a class="flink" href="/terms">Terms of service</a>
+        <a class="flink" href="/pricing">Pricing</a>
+      </nav>
+    </div>
+  </div>
+</footer>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+/* Hero background
+   Touch screens (phones, tablets) play a pre-rendered loop of the 3D scene: the same
+   quality on every device, almost no work for the phone, and three.js isn't even
+   downloaded. Computers run the live scene; if one can't keep a smooth frame rate,
+   it hands over to the video too. ?live / ?video force either mode. */
+const params = new URLSearchParams(location.search);
+const host = document.getElementById('hero-scene');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const touch = matchMedia('(pointer: coarse)').matches;
+const mode = params.has('video') ? 'video' : params.has('live') ? 'live' : touch ? 'video' : 'live';
+const theme = () => document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+let scene = null, video = null;
+
+/* ---- video: closest of four rendered shapes, in the current theme ---- */
+const SHAPES = { desktop: 16 / 9, tablet: 4 / 3, 'tablet-portrait': 3 / 4, mobile: 864 / 1464, 'mobile-tall': 864 / 1872 };
+let current = '';
+function loadVideo() {
+  const a = host.clientWidth / Math.max(1, host.clientHeight); // the hero's real shape (not the window's)
+  const shape = Object.keys(SHAPES).reduce((best, k) => Math.abs(Math.log(SHAPES[k] / a)) < Math.abs(Math.log(SHAPES[best] / a)) ? k : best, 'desktop');
+  const name = 'videos/hero-' + shape + '-' + theme();
+  if (name === current) return;
+  const t = video.currentTime || 0;
+  current = name; video.dataset.shape = shape;
+  host.style.backgroundImage = 'url(' + name + '.jpg)'; // always something to see, even if playback fails
+  host.style.backgroundPosition = /^mobile|portrait/.test(shape) ? '50% 50%' : '70% 50%';
+  video.poster = name + '.jpg'; video.src = name + '.mp4';
+  video.addEventListener('loadedmetadata', () => { try { video.currentTime = t % (video.duration || 1); } catch (e) {} }, { once: true });
+  play();
+}
+function play() { if (reduce) { video.pause(); return; } const p = video.play(); if (p) p.catch(() => {}); } // refused autoplay keeps the poster
+function startVideo() {
+  host.dataset.mode = 'video';
+  video = document.createElement('video');
+  video.muted = true; video.loop = true; video.playsInline = true; video.preload = 'auto'; video.disablePictureInPicture = true;
+  for (const a of ['muted', 'playsinline', 'webkit-playsinline', 'loop']) video.setAttribute(a, '');
+  if (!reduce) { video.autoplay = true; video.setAttribute('autoplay', ''); }
+  video.addEventListener('error', () => { video.classList.remove('is-playing'); }); // can't play → the still backdrop shows
+  video.addEventListener('playing', () => video.classList.add('is-playing'));
+  video.addEventListener('pause', () => { if (!reduce) video.classList.remove('is-playing'); });
+  host.append(video); loadVideo();
+  // re-pick only when the width changes (rotation / window resize): Safari's address bar
+  // changes the height while scrolling and could flip between two similar shapes
+  let lastW = innerWidth, rt;
+  addEventListener('resize', () => { if (innerWidth === lastW) return; lastW = innerWidth; clearTimeout(rt); rt = setTimeout(loadVideo, 200); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) play(); });
+  // autoplay refused (e.g. Low Power Mode): start on the first touch
+  addEventListener('touchstart', play, { once: true, passive: true });
+}
+
+/* ---- live: the three.js scene, with a frame-rate watchdog ---- */
+async function startLive() {
+  host.dataset.mode = 'live';
+  const { mountHeroScene } = await import('./hero-scene.js');
+  scene = mountHeroScene(host);
+  if (reduce || params.has('live')) return;
+  let frames = 0, t0 = 0, slow = 0;
+  const tick = now => {
+    if (!scene) return;
+    if (!t0 || now - t0 > 2000 || document.hidden) { t0 = now; frames = 0; } // ignore gaps (tab hidden)
+    frames++;
+    if (now - t0 >= 1000) {
+      const fps = frames * 1000 / (now - t0); t0 = now; frames = 0;
+      slow = fps < 40 ? slow + 1 : 0;
+      if (slow >= 3) { scene.halt(); scene = null; startVideo(); return; } // 3 slow seconds in a row
+    }
+    requestAnimationFrame(tick);
+  };
+  setTimeout(() => requestAnimationFrame(tick), 2500); // skip the warm-up
+}
+mode === 'video' ? startVideo() : startLive().catch(() => startVideo());
+
+// light / dark toggle in the header
+const themeBtn = document.getElementById('theme-btn');
+const syncThemeBtn = () => themeBtn.setAttribute('aria-label', theme() === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
+syncThemeBtn();
+themeBtn.addEventListener('click', () => {
+  const next = theme() === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('c1-theme', next); } catch (e) {}
+  if (scene) scene.setTheme(next); else if (video) loadVideo();
+  syncThemeBtn();
+});
+</script>
+</body>
+</html>
